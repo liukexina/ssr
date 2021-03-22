@@ -22,8 +22,6 @@ const Router = require('../client/router').default;
 const koaRouter = new KoaRouter();
 const app = new Koa();
 
-console.log(path.resolve(__dirname, '../public'))
-
 app.use(koaStatic(path.resolve(__dirname, '../public')));
 
 
