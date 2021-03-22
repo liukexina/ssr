@@ -16,8 +16,10 @@ const template = require('./template').default;
 const React = require('react');
 const KoaRouter = require('koa-router');
 const { renderToString } = require('react-dom/server');
-const { StaticRouter } = require('react-router-dom');
+const { StaticRouter, Route, matchPath } = require('react-router-dom');
 const Router = require('../client/router').default;
+const { Provider }  = require('react-redux');
+const getStore = require('../client/store').default;
 
 const koaRouter = new KoaRouter();
 const app = new Koa();
@@ -28,16 +30,40 @@ app.use(koaStatic(path.resolve(__dirname, '../public')));
 koaRouter.get("/(.*)", async (ctx) => {
   const context = {};
   console.log('ctx.url', ctx.url);
-  ctx.body = template(
-    renderToString(
-      //传入当前path
-      //context为必填参数,用于服务端渲染参数传递
-      <StaticRouter location={ctx.url} context={context}>
-        {Router}
-      </StaticRouter>
-      // <Home />
-    )
-  );
+
+  const store = getStore();
+  const matchRoutes = [];
+  const promises = [];
+
+  Router.some(route=> {
+    matchPath(ctx.url, route) ? matchRoutes.push(route) : ''
+  })
+
+  matchRoutes.forEach(item=> {
+    promises.push(item.loadData(store))
+  })
+
+  Promise.all(promises).then(() => {
+    console.log('store.getState()', store.getState());
+
+    ctx.body = template(
+      renderToString(
+        //传入当前path
+        //context为必填参数,用于服务端渲染参数传递
+        <Provider store={store}>
+          <StaticRouter location={ctx.url} context={context}>
+            {/* {Router} */}
+            <div>
+              {Router.map(router=> (
+                <Route {...router}/>
+              ))}
+            </div>
+          </StaticRouter>
+        </Provider>
+        // <Home />
+      ),store.getState()
+    );
+  })
 });
 
 app.use(koaRouter.routes());
